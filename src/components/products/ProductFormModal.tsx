@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { useProducts } from '@/hooks/useProducts';
 import { useToast } from '@/lib/context/ToastContext';
 import { Product } from '@/types/database';
+import { api } from '@/lib/services/api';
 
 const productSchema = z.object({
   category_slug: z.enum(['honey', 'fruits']),
@@ -73,10 +74,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   const onSubmit = async (data: ProductFormData) => {
     try {
+      const categories = await api.getCategories();
+      const targetCategory = categories.find((c) => c.slug === data.category_slug);
       const category_id =
-        data.category_slug === 'honey'
+        targetCategory?.id ||
+        (data.category_slug === 'honey'
           ? '11111111-1111-1111-1111-111111111111'
-          : '22222222-2222-2222-2222-222222222222';
+          : '22222222-2222-2222-2222-222222222222');
 
       // Auto-generate SKU code if not editing
       const skuPrefix = data.category_slug === 'honey' ? 'HNY' : 'FRT';

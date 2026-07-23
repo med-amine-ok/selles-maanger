@@ -131,7 +131,13 @@ export const api = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('categories').select('*').order('name');
-      if (!error && data) return data as Category[];
+      if (!error && data) {
+        if (data.length === 0) {
+          await supabase.from('categories').upsert(INITIAL_CATEGORIES);
+          return INITIAL_CATEGORIES;
+        }
+        return data as Category[];
+      }
     }
     return getLocalCategories();
   },
@@ -198,6 +204,20 @@ export const api = {
   createProduct: async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>): Promise<Product> => {
     const supabase = getSupabaseClient();
     if (supabase) {
+      // Ensure category exists in Supabase to prevent foreign key errors
+      const { data: cat } = await supabase.from('categories').select('id').eq('id', productData.category_id).maybeSingle();
+      if (!cat) {
+        const isHoney = productData.category_id.includes('1111') || productData.sku.startsWith('HNY');
+        const defaultCat = {
+          id: productData.category_id,
+          slug: isHoney ? 'honey' : 'fruits',
+          name: isHoney ? 'Honey' : 'Fruits',
+          description: isHoney ? 'Honey products' : 'Fruit products',
+          accent_color: isHoney ? '#D4A24C' : '#7FB685',
+        };
+        await supabase.from('categories').upsert([defaultCat]);
+      }
+
       const { data, error } = await supabase.from('products').insert([productData]).select().single();
       if (!error && data) return data as Product;
       if (error) throw new Error(error.message);
