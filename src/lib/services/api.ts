@@ -2,6 +2,7 @@ import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import {
   Category,
   Product,
+  ProductUnit,
   Sale,
   DashboardMetrics,
   RevenueTrendItem,
