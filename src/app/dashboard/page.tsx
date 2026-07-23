@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AnalyticsDashboard } from '@/components/dashboard/AnalyticsDashboard';
 import { QuickSellModal } from '@/components/sell/QuickSellModal';
 
-export default function HomePage() {
+export default function DashboardPage() {
   const router = useRouter();
   const [isQuickSellOpen, setIsQuickSellOpen] = useState(false);
 
