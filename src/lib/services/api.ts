@@ -4,6 +4,8 @@ import {
   Product,
   ProductUnit,
   Sale,
+  Expense,
+  ExpenseCategory,
   DashboardMetrics,
   RevenueTrendItem,
   CategoryDistributionItem,
@@ -31,6 +33,7 @@ const STORAGE_KEYS = {
   CATEGORIES: 'selles_categories_v2',
   PRODUCTS: 'selles_products_v2',
   SALES: 'selles_sales_v2',
+  EXPENSES: 'selles_expenses_v2',
 };
 
 const getLocalCategories = (): Category[] => {
@@ -86,6 +89,23 @@ const getLocalSales = (): Sale[] => {
 const saveLocalSales = (sales: Sale[]) => {
   if (typeof window !== 'undefined') {
     localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(sales));
+  }
+};
+
+const getLocalExpenses = (): Expense[] => {
+  if (typeof window === 'undefined') return [];
+  const stored = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+};
+
+const saveLocalExpenses = (expenses: Expense[]) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
   }
 };
 
@@ -456,6 +476,86 @@ export const api = {
     }
   },
 
+  getExpenses: async (filters?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<Expense[]> => {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      let query = supabase.from('expenses').select('*').order('expense_date', { ascending: false });
+      if (filters?.startDate) {
+        const startISO = new Date(filters.startDate).toISOString();
+        query = query.gte('expense_date', startISO);
+      }
+      if (filters?.endDate) {
+        const endISO = endOfDay(new Date(filters.endDate)).toISOString();
+        query = query.lte('expense_date', endISO);
+      }
+      const { data, error } = await query;
+      if (!error && data) return data as Expense[];
+    }
+
+    let expenses = getLocalExpenses();
+    if (filters?.startDate) {
+      const start = new Date(filters.startDate).getTime();
+      expenses = expenses.filter((e) => new Date(e.expense_date).getTime() >= start);
+    }
+    if (filters?.endDate) {
+      const end = endOfDay(new Date(filters.endDate)).getTime();
+      expenses = expenses.filter((e) => new Date(e.expense_date).getTime() <= end);
+    }
+    return expenses;
+  },
+
+  createExpense: async (expenseData: {
+    title: string;
+    amount: number;
+    category?: ExpenseCategory;
+    expense_date?: string;
+    notes?: string;
+  }): Promise<Expense> => {
+    const supabase = getSupabaseClient();
+    const newExpense = {
+      title: expenseData.title,
+      amount: Math.round(expenseData.amount),
+      category: expenseData.category || 'other',
+      expense_date: expenseData.expense_date || new Date().toISOString(),
+      notes: expenseData.notes || '',
+    };
+
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('expenses').insert([newExpense]).select().single();
+        if (!error && data) return data as Expense;
+        if (error) console.error('Supabase expense table notice:', error.message);
+      } catch (err: any) {
+        console.error('Supabase expense insert fallback:', err?.message);
+      }
+    }
+
+    const expenses = getLocalExpenses();
+    const created: Expense = {
+      ...newExpense,
+      id: 'exp-' + Date.now(),
+      created_at: new Date().toISOString(),
+    };
+    expenses.unshift(created);
+    saveLocalExpenses(expenses);
+    return created;
+  },
+
+  deleteExpense: async (id: string): Promise<void> => {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { error } = await supabase.from('expenses').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+      return;
+    }
+
+    const expenses = getLocalExpenses().filter((e) => e.id !== id);
+    saveLocalExpenses(expenses);
+  },
+
   getDashboardMetrics: async (
     timeRange: TimeRangeFilter,
     customRange?: CustomDateRange
@@ -475,11 +575,17 @@ export const api = {
       startDate: interval.start.toISOString(),
       endDate: interval.end.toISOString(),
     });
+    const expenses = await api.getExpenses({
+      startDate: interval.start.toISOString(),
+      endDate: interval.end.toISOString(),
+    });
     const products = await api.getProducts();
 
     const total_revenue = sales.reduce((sum, s) => sum + s.total_amount, 0);
     const total_cost = sales.reduce((sum, s) => sum + s.quantity_sold * (s.cost_price_at_sale || 0), 0);
     const total_profit = total_revenue - total_cost;
+    const total_expenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const net_cash = total_revenue - total_expenses;
     const units_sold = sales.reduce((sum, s) => sum + s.quantity_sold, 0);
 
     const current_stock_value = products.reduce((sum, p) => sum + p.stock_quantity * p.selling_price, 0);
@@ -489,6 +595,8 @@ export const api = {
       total_revenue: Math.round(total_revenue),
       total_cost: Math.round(total_cost),
       total_profit: Math.round(total_profit),
+      total_expenses: Math.round(total_expenses),
+      net_cash: Math.round(net_cash),
       units_sold: Math.round(units_sold),
       current_stock_value: Math.round(current_stock_value),
       low_stock_count,

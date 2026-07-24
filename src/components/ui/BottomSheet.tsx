@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { clsx } from 'clsx';
 
 export interface BottomSheetProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ export interface BottomSheetProps {
   title?: string;
   description?: string;
   children: React.ReactNode;
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
 }
 
 export const BottomSheet: React.FC<BottomSheetProps> = ({
@@ -18,6 +20,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   title,
   description,
   children,
+  maxWidth = 'lg',
 }) => {
   useEffect(() => {
     if (isOpen) {
@@ -29,6 +32,17 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
       document.body.style.overflow = 'unset';
     };
   }, [isOpen]);
+
+  const maxWidthStyles = {
+    sm: 'max-w-sm',
+    md: 'max-w-md',
+    lg: 'max-w-lg',
+    xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
+    '3xl': 'max-w-3xl',
+    '4xl': 'max-w-4xl',
+    '5xl': 'max-w-5xl',
+  };
 
   return (
     <AnimatePresence>
@@ -49,7 +63,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 280 }}
-            className="relative w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col z-10"
+            className={clsx(
+              'relative w-full bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col z-10',
+              maxWidthStyles[maxWidth]
+            )}
           >
             {/* Grab handle for mobile */}
             <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto mt-3 mb-1 sm:hidden" />
@@ -63,7 +80,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 </div>
                 <button
                   onClick={onClose}
-                  className="text-[#6B6B63] hover:text-[#2A2A24] bg-[#F5F5F0] p-1.5 rounded-full transition-colors"
+                  className="text-[#6B6B63] hover:text-[#2A2A24] bg-[#F5F5F0] p-1.5 rounded-full transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>

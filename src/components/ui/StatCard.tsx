@@ -9,6 +9,7 @@ export interface StatCardProps {
   icon?: React.ReactNode;
   accent?: 'gold' | 'green' | 'amber' | 'rose' | 'neutral';
   onClick?: () => void;
+  className?: string;
 }
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -18,6 +19,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   icon,
   accent = 'neutral',
   onClick,
+  className,
 }) => {
   const accentStyles = {
     gold: 'bg-[#FBF1DD] text-[#B5822F]',
@@ -32,7 +34,7 @@ export const StatCard: React.FC<StatCardProps> = ({
       variant={onClick ? 'interactive' : 'surface'}
       padding="md"
       onClick={onClick}
-      className="flex flex-col justify-between min-w-[150px] relative overflow-hidden"
+      className={clsx('flex flex-col justify-between min-w-[150px] relative overflow-hidden', className)}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="text-xs font-semibold uppercase tracking-wider text-[#6B6B63]">{title}</span>

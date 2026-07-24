@@ -95,10 +95,24 @@ export interface CustomDateRange {
   endDate: string;
 }
 
+export type ExpenseCategory = 'stock_purchase' | 'supplies' | 'transport' | 'utilities' | 'other';
+
+export interface Expense {
+  id: string;
+  title: string;
+  amount: number;
+  category: ExpenseCategory;
+  expense_date: string;
+  notes?: string;
+  created_at: string;
+}
+
 export interface DashboardMetrics {
   total_revenue: number;
   total_cost: number;
   total_profit: number;
+  total_expenses: number;
+  net_cash: number;
   units_sold: number;
   current_stock_value: number;
   low_stock_count: number;

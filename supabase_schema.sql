@@ -68,6 +68,17 @@ CREATE TABLE IF NOT EXISTS public.stock_movements (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Expenses Table (Purchases & Money Spent)
+CREATE TABLE IF NOT EXISTS public.expenses (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title TEXT NOT NULL,
+    amount NUMERIC(12, 0) NOT NULL CHECK (amount >= 0),
+    category TEXT NOT NULL DEFAULT 'other', -- 'stock_purchase', 'supplies', 'transport', 'utilities', 'other'
+    expense_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- --------------------------------------------------------------------
 -- 2. INDEXES FOR HIGH-PERFORMANCE QUERIES
 -- --------------------------------------------------------------------
@@ -81,6 +92,8 @@ CREATE INDEX IF NOT EXISTS idx_sales_sale_date ON public.sales(sale_date DESC);
 CREATE INDEX IF NOT EXISTS idx_sales_created_at ON public.sales(created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON public.stock_movements(product_id);
+
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON public.expenses(expense_date DESC);
 
 -- --------------------------------------------------------------------
 -- 3. TRIGGERS & AUTOMATION
@@ -161,6 +174,8 @@ DECLARE
     v_revenue NUMERIC(12, 0);
     v_cost NUMERIC(12, 0);
     v_profit NUMERIC(12, 0);
+    v_expenses NUMERIC(12, 0);
+    v_net_cash NUMERIC(12, 0);
     v_units NUMERIC(10, 0);
     v_stock_value NUMERIC(12, 0);
     v_low_stock_count INT;
@@ -176,6 +191,15 @@ BEGIN
 
     v_profit := v_revenue - v_cost;
 
+    -- Expenses sum within date range
+    SELECT COALESCE(SUM(e.amount), 0)
+    INTO v_expenses
+    FROM public.expenses e
+    WHERE e.expense_date >= p_start_date AND e.expense_date <= p_end_date;
+
+    -- Net cash available = Revenue minus Expenses spent
+    v_net_cash := v_revenue - v_expenses;
+
     SELECT 
         COALESCE(SUM(p.stock_quantity * p.selling_price), 0),
         COUNT(*) FILTER (WHERE p.stock_quantity <= p.low_stock_threshold)
@@ -187,6 +211,8 @@ BEGIN
         'total_revenue', v_revenue,
         'total_cost', v_cost,
         'total_profit', v_profit,
+        'total_expenses', v_expenses,
+        'net_cash', v_net_cash,
         'units_sold', v_units,
         'current_stock_value', v_stock_value,
         'low_stock_count', v_low_stock_count
@@ -256,6 +282,7 @@ ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stock_movements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow public read categories" ON public.categories FOR SELECT USING (true);
 CREATE POLICY "Allow public manage categories" ON public.categories FOR ALL USING (true);
@@ -268,3 +295,6 @@ CREATE POLICY "Allow public manage sales" ON public.sales FOR ALL USING (true);
 
 CREATE POLICY "Allow public read stock_movements" ON public.stock_movements FOR SELECT USING (true);
 CREATE POLICY "Allow public insert stock_movements" ON public.stock_movements FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow public read expenses" ON public.expenses FOR SELECT USING (true);
+CREATE POLICY "Allow public manage expenses" ON public.expenses FOR ALL USING (true);
